@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>今日の記録</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #f0ede8; font-family: -apple-system, 'Helvetica Neue', sans-serif; color: #1a1a22; min-height: 100vh; padding: 40px 20px; }
+.wrap { max-width: 700px; margin: 0 auto; }
+.header { text-align: center; margin-bottom: 32px; }
+.header-sub { font-size: 11px; letter-spacing: 6px; color: #bbb; text-transform: uppercase; margin-bottom: 10px; }
+.header-title { font-size: 38px; font-weight: 800; color: #1a1a22; }
+.section-title { font-size: 10px; letter-spacing: 4px; color: #999; text-transform: uppercase; margin-bottom: 6px; }
+.btn { padding: 12px 20px; background: #fff; color: #555; border: 1px solid #d8d4cc; border-radius: 10px; font-size: 14px; cursor: pointer; font-family: inherit; }
+.btn-primary { background: #1a1a22; color: #f0ede8; border: none; border-radius: 10px; padding: 13px 24px; font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit; flex: 1; }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+.input { background: #fff; border: 1px solid #d8d4cc; border-radius: 8px; color: #1a1a22; font-size: 14px; padding: 8px 10px; outline: none; width: 100%; font-family: inherit; }
+.entry-row { display: grid; grid-template-columns: 1fr 110px 110px 36px; gap: 8px; align-items: center; background: #fff; border-radius: 12px; padding: 12px 14px; border: 1px solid #d8d4cc; margin-bottom: 10px; }
+.remove-btn { background: none; border: 1px solid #d8d4cc; border-radius: 8px; color: #aaa; cursor: pointer; font-size: 16px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; }
+.btn-row { display: flex; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+.error-msg { color: #FF6B6B; font-size: 12px; margin-top: 8px; }
+.nav-right { display: flex; justify-content: flex-end; margin-bottom: 24px; }
+.date-row { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; }
+.card { background: #fff; border: 1px solid #d8d4cc; border-radius: 12px; padding: 14px 16px; cursor: pointer; display: flex; align-items: center; gap: 16px; width: 100%; text-align: left; color: #1a1a22; font-family: inherit; margin-bottom: 10px; }
+.chart-grid { display: grid; grid-template-columns: 240px 1fr; gap: 32px; align-items: start; margin-bottom: 40px; }
+.legend-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.legend-dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+.legend-label { flex: 1; font-size: 14px; }
+.legend-val { font-size: 13px; color: #555; text-align: right; }
+.legend-pct { font-size: 11px; color: #aaa; margin-left: 6px; }
+.timeline-wrap { position: relative; margin-top: 16px; }
+.tl-blocks { margin-top: 24px; display: flex; flex-direction: column; gap: 8px; }
+.tl-block-outer { position: relative; height: 44px; }
+.tl-block { position: absolute; height: 100%; border-radius: 8px; display: flex; align-items: center; padding-left: 10px; overflow: hidden; }
+.tl-block span { font-size: 12px; font-weight: 700; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tl-label { position: absolute; top: 50%; transform: translateY(-50%); font-size: 10px; color: #aaa; white-space: nowrap; }
+.monthly-bar-wrap { overflow-x: auto; margin-top: 16px; margin-bottom: 40px; }
+.monthly-bar-inner { display: flex; align-items: flex-end; gap: 8px; padding-bottom: 4px; }
+.bar-col { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 44px; }
+.bar-track { position: relative; width: 36px; }
+.bar-bg { position: absolute; bottom: 0; width: 100%; background: #e4e0d8; border-radius: 6px; }
+.bar-fill { position: absolute; bottom: 0; width: 100%; border-radius: 6px; overflow: hidden; display: flex; flex-direction: column-reverse; }
+.month-tab { padding: 8px 16px; font-size: 13px; border-radius: 10px; cursor: pointer; border: 1px solid #d8d4cc; background: #fff; color: #555; font-family: inherit; margin-right: 8px; margin-bottom: 8px; }
+.month-tab.active { background: #1a1a22; color: #f0ede8; border-color: #1a1a22; }
+.progress-bar-wrap { height: 6px; background: #e4e0d8; border-radius: 3px; overflow: hidden; }
+.progress-bar { height: 100%; border-radius: 3px; }
+#view-input, #view-chart, #view-history, #view-detail, #view-monthly { display: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- HEADER (shared) -->
+  <div class="header">
+    <div class="header-sub">TODAY'S LOG</div>
+    <div class="header-title">今日の記録</div>
+  </div>
+
+  <!-- INPUT VIEW -->
+  <div id="view-input">
+    <div class="nav-right">
+      <button class="btn" onclick="showHistory()">📋 過去の記録</button>
+    </div>
+    <div class="date-row">
+      <div class="section-title">日付</div>
+      <input type="date" id="date-key" class="input" style="width:auto;font-size:13px;padding:6px 10px;">
+    </div>
+    <div id="entry-list"></div>
+    <div class="btn-row">
+      <button class="btn" onclick="addEntry()">＋ 追加</button>
+      <button class="btn-primary" id="viz-btn" onclick="showChart()" disabled>可視化する →</button>
+      <button class="btn" id="save-btn" onclick="saveData()">💾 保存</button>
+    </div>
+    <div id="time-error" class="error-msg" style="display:none">※ 終了時刻は開始時刻より後にしてください</div>
+  </div>
+
+  <!-- CHART VIEW -->
+  <div id="view-chart">
+    <div class="btn-row" style="margin-bottom:32px">
+      <button class="btn" onclick="showView('input')">← 編集に戻る</button>
+      <button class="btn" id="save-btn2" onclick="saveData()">💾 保存</button>
+    </div>
+    <div class="section-title">タイムライン</div>
+    <div id="chart-timeline" class="timeline-wrap"></div>
+    <div style="margin-top:44px" class="section-title">24時間の内訳</div>
+    <div class="chart-grid" style="margin-top:8px">
+      <div><svg id="chart-donut" viewBox="0 0 240 240" style="width:100%;display:block"></svg></div>
+      <div id="chart-legend" style="padding-top:28px"></div>
+    </div>
+  </div>
+
+  <!-- HISTORY VIEW -->
+  <div id="view-history">
+    <div class="btn-row" style="margin-bottom:32px">
+      <button class="btn" onclick="showView('input')">← 入力に戻る</button>
+      <button class="btn" style="background:#1a1a22;color:#f0ede8;border-color:#1a1a22" onclick="showMonthly()">📊 月次サマリー</button>
+    </div>
+    <div class="section-title">保存済みの記録</div>
+    <div id="history-list" style="margin-top:14px"></div>
+  </div>
+
+  <!-- DETAIL VIEW -->
+  <div id="view-detail">
+    <button class="btn" style="margin-bottom:32px" onclick="showHistory()">← 履歴一覧</button>
+    <div id="detail-title" style="font-size:20px;font-weight:700;margin-bottom:24px"></div>
+    <div class="section-title">タイムライン</div>
+    <div id="detail-timeline" class="timeline-wrap"></div>
+    <div style="margin-top:44px" class="section-title">24時間の内訳</div>
+    <div class="chart-grid" style="margin-top:8px">
+      <div><svg id="detail-donut" viewBox="0 0 240 240" style="width:100%;display:block"></svg></div>
+      <div id="detail-legend" style="padding-top:28px"></div>
+    </div>
+  </div>
+
+  <!-- MONTHLY VIEW -->
+  <div id="view-monthly">
+    <button class="btn" style="margin-bottom:32px" onclick="showHistory()">← 戻る</button>
+    <div id="month-tabs" style="margin-bottom:32px"></div>
+    <div class="section-title">日別 作業時間</div>
+    <div id="monthly-bars" class="monthly-bar-wrap"></div>
+    <div class="section-title">活動別 月間合計</div>
+    <div id="monthly-totals" style="margin-top:12px"></div>
+  </div>
+
+</div>
+<script>
+// ── Data
+var COLORS = ["#FF6B6B","#FFD93D","#6BCB77","#4D96FF","#FF922B","#CC5DE8","#20C997","#F06595","#74C0FC","#A9E34B"];
+var FULL_DAY = 1440;
+var entries = [{id:1,label:"",start:"",end:""}];
+var savedDays = {};
+var currentView = "input";
+var selectedDay = null;
+var selectedMonth = null;
+var entryIdCounter = 2;
+
+function labelColor(label) {
+  var hash = 0;
+  for (var i = 0; i < label.length; i++) hash = ((hash * 31) + label.charCodeAt(i)) >>> 0;
+  return COLORS[hash % COLORS.length];
+}
+function toMin(t) { var p=t.split(":"); return parseInt(p[0])*60+(parseInt(p[1])||0); }
+function toHHMM(m) { return ("0"+Math.floor(m/60)).slice(-2)+":"+("0"+(m%60)).slice(-2); }
+function fmt(m) { var h=Math.floor(m/60),mn=m%60; if(!h)return mn+"分"; if(!mn)return h+"時間"; return h+"時間"+mn+"分"; }
+function todayKey() { return new Date().toISOString().slice(0,10); }
+function fmtDate(k) { var p=k.split("-"); return p[0]+"年"+parseInt(p[1])+"月"+parseInt(p[2])+"日"; }
+function fmtMonth(ym) { var p=ym.split("-"); return p[0]+"年"+parseInt(p[1])+"月"; }
+
+// ── Storage (localStorage only — reliable in Safari)
+function lsSave(key, val) {
+  localStorage.setItem(key, val);
+  var idx = JSON.parse(localStorage.getItem("__dayKeys__")||"[]");
+  if (idx.indexOf(key) === -1) { idx.push(key); localStorage.setItem("__dayKeys__", JSON.stringify(idx)); }
+}
+function lsLoad(key) { return localStorage.getItem(key); }
+function lsKeys(prefix) {
+  var idx = JSON.parse(localStorage.getItem("__dayKeys__")||"[]");
+  return idx.filter(function(k){ return k.indexOf(prefix)===0; });
+}
+
+// ── Init
+function init() {
+  document.getElementById("date-key").value = todayKey();
+  var keys = lsKeys("day:");
+  keys.forEach(function(k) {
+    try { var v=lsLoad(k); if(v) savedDays[k.replace("day:","")] = JSON.parse(v); } catch(e){}
+  });
+  var td = savedDays[todayKey()];
+  if (td) { entries = td; entryIdCounter = Date.now(); }
+  renderEntries();
+  showView("input");
+}
+
+// ── Views
+function showView(v) {
+  ["input","chart","history","detail","monthly"].forEach(function(n){
+    document.getElementById("view-"+n).style.display = "none";
+  });
+  document.getElementById("view-"+v).style.display = "block";
+  currentView = v;
+}
+function showChart() {
+  var blocks = getBlocks();
+  if (!blocks.length) return;
+  renderChart(blocks);
+  showView("chart");
+}
+function showHistory() {
+  renderHistory();
+  showView("history");
+}
+function showMonthly() {
+  renderMonthly();
+  showView("monthly");
+}
+function showDetail(key) {
+  selectedDay = key;
+  var blocks = getBlocksFromEntries(savedDays[key]||[]);
+  document.getElementById("detail-title").textContent = fmtDate(key);
+  renderTimeline(blocks, "detail-timeline");
+  renderDonut(blocks, "detail-donut");
+  renderLegend(blocks, "detail-legend");
+  showView("detail");
+}
+
+// ── Entries
+function addEntry() {
+  entries.push({id: entryIdCounter++, label:"", start:"", end:""});
+  renderEntries();
+}
+function removeEntry(id) {
+  entries = entries.filter(function(e){ return e.id !== id; });
+  renderEntries();
+}
+function updateEntry(id, field, value) {
+  entries.forEach(function(e){ if(e.id===id) e[field]=value; });
+  validateEntries();
+}
+function renderEntries() {
+  var list = document.getElementById("entry-list");
+  list.innerHTML = "";
+  entries.forEach(function(e, i) {
+    var row = document.createElement("div");
+    row.className = "entry-row";
+    row.innerHTML =
+      '<input class="input" placeholder="活動'+(i+1)+'（例：作業、散歩…）" value="'+e.label.replace(/"/g,'&quot;')+'" oninput="updateEntry('+e.id+',\'label\',this.value)">'+
+      '<input type="time" class="input" value="'+e.start+'" oninput="updateEntry('+e.id+',\'start\',this.value)">'+
+      '<input type="time" class="input" value="'+e.end+'" oninput="updateEntry('+e.id+',\'end\',this.value)">'+
+      '<button class="remove-btn" onclick="removeEntry('+e.id+')">×</button>';
+    list.appendChild(row);
+  });
+  validateEntries();
+}
+function validateEntries() {
+  var hasError = entries.some(function(e){ return e.label&&e.start&&e.end&&toMin(e.end)<=toMin(e.start); });
+  document.getElementById("time-error").style.display = hasError ? "block" : "none";
+  var valid = getBlocks().length > 0;
+  document.getElementById("viz-btn").disabled = !valid;
+}
+function getBlocks() { return getBlocksFromEntries(entries); }
+function getBlocksFromEntries(ents) {
+  return ents.filter(function(e){ return e.label&&e.start&&e.end&&toMin(e.end)>toMin(e.start); })
+    .map(function(e){ return {id:e.id,label:e.label,startMin:toMin(e.start),endMin:toMin(e.end),duration:toMin(e.end)-toMin(e.start),color:labelColor(e.label)}; });
+}
+
+// ── Save
+function saveData() {
+  var blocks = getBlocks();
+  if (!blocks.length) return;
+  var key = document.getElementById("date-key").value;
+  try {
+    lsSave("day:"+key, JSON.stringify(entries));
+    savedDays[key] = JSON.parse(JSON.stringify(entries));
+    var btn = document.getElementById(currentView==="chart"?"save-btn2":"save-btn");
+    var orig = btn.textContent;
+    btn.textContent = "✓ 保存しました"; btn.style.color="#6BCB77"; btn.style.borderColor="#6BCB77";
+    setTimeout(function(){ btn.textContent=orig; btn.style.color=""; btn.style.borderColor=""; }, 2000);
+  } catch(e) { alert("保存に失敗しました"); }
+}
+
+// ── SVG helpers
+function buildArc(s,e,R,r,cx,cy) {
+  function toXY(min,rad){ var a=(min/FULL_DAY)*2*Math.PI-Math.PI/2; return [cx+rad*Math.cos(a),cy+rad*Math.sin(a)]; }
+  var dur=e-s; if(dur<=0)return"";
+  var p1=toXY(s,R),p2=toXY(e,R),p3=toXY(e,r),p4=toXY(s,r);
+  var large=dur/FULL_DAY>0.5?1:0;
+  return "M"+p1[0]+","+p1[1]+" A"+R+","+R+" 0 "+large+" 1 "+p2[0]+","+p2[1]+" L"+p3[0]+","+p3[1]+" A"+r+","+r+" 0 "+large+" 0 "+p4[0]+","+p4[1]+" Z";
+}
+function getGaps(blocks) {
+  var sorted=blocks.slice().sort(function(a,b){return a.startMin-b.startMin;});
+  var gaps=[],cur=0;
+  for(var i=0;i<sorted.length;i++){if(sorted[i].startMin>cur)gaps.push({s:cur,e:sorted[i].startMin});cur=Math.max(cur,sorted[i].endMin);}
+  if(cur<FULL_DAY)gaps.push({s:cur,e:FULL_DAY});
+  return gaps;
+}
+function svgEl(tag,attrs,text) {
+  var el=document.createElementNS("http://www.w3.org/2000/svg",tag);
+  for(var k in attrs) el.setAttribute(k,attrs[k]);
+  if(text!=null) el.textContent=text;
+  return el;
+}
+
+// ── Donut
+function renderDonut(blocks, svgId) {
+  var svg = document.getElementById(svgId);
+  svg.innerHTML = "";
+  var cx=120,cy=120,R=95,r=58;
+  var gaps=getGaps(blocks);
+  gaps.forEach(function(g){ svg.appendChild(svgEl("path",{d:buildArc(g.s,g.e,R,r,cx,cy),fill:"#ddd8d0",stroke:"#f0ede8","stroke-width":"1.5"})); });
+  blocks.forEach(function(b){ svg.appendChild(svgEl("path",{d:buildArc(b.startMin,b.endMin,R,r,cx,cy),fill:b.color,stroke:"#f0ede8","stroke-width":"1.5"})); });
+  for(var h=0;h<24;h++){
+    var isMajor=h%6===0,a=(h/24)*2*Math.PI-Math.PI/2;
+    var ri=R+(isMajor?13:8),ro=R+6;
+    svg.appendChild(svgEl("line",{x1:cx+ro*Math.cos(a),y1:cy+ro*Math.sin(a),x2:cx+ri*Math.cos(a),y2:cy+ri*Math.sin(a),stroke:isMajor?"#bbb":"#ddd","stroke-width":isMajor?"1.5":"1"}));
+    if(isMajor){var lx=cx+(R+20)*Math.cos(a),ly=cy+(R+20)*Math.sin(a);svg.appendChild(svgEl("text",{"text-anchor":"middle","dominant-baseline":"middle",fill:"#bbb","font-size":"9",x:lx,y:ly},h===0?"0":h));}
+  }
+  var total=blocks.reduce(function(s,b){return s+b.duration;},0);
+  svg.appendChild(svgEl("text",{"text-anchor":"middle",fill:"#aaa","font-size":"9",x:cx,y:cy-10},"記録済み"));
+  svg.appendChild(svgEl("text",{"text-anchor":"middle",fill:"#1a1a22","font-size":"16","font-weight":"bold",x:cx,y:cy+7},fmt(total)));
+  svg.appendChild(svgEl("text",{"text-anchor":"middle",fill:"#aaa","font-size":"9",x:cx,y:cy+22},"/ 24時間中"));
+}
+
+// ── Legend
+function renderLegend(blocks, divId) {
+  var div=document.getElementById(divId); div.innerHTML="";
+  var merged={};
+  blocks.forEach(function(b){if(!merged[b.label])merged[b.label]={label:b.label,color:b.color,duration:0};merged[b.label].duration+=b.duration;});
+  Object.values(merged).sort(function(a,b){return b.duration-a.duration;}).forEach(function(b){
+    div.innerHTML+='<div class="legend-row"><div class="legend-dot" style="background:'+b.color+'"></div><div class="legend-label">'+b.label+'</div><div class="legend-val">'+fmt(b.duration)+'<span class="legend-pct">('+Math.round(b.duration/FULL_DAY*100)+'%)</span></div></div>';
+  });
+  var untracked=FULL_DAY-blocks.reduce(function(s,b){return s+b.duration;},0);
+  div.innerHTML+='<div class="legend-row" style="border-top:1px solid #e4e0d8;padding-top:10px;margin-top:4px"><div class="legend-dot" style="background:#ccc;border:1px solid #bbb"></div><div class="legend-label" style="color:#aaa">未記録</div><div class="legend-val" style="color:#bbb">'+fmt(untracked)+'<span style="font-size:11px;color:#ccc;margin-left:6px">('+Math.round(untracked/FULL_DAY*100)+'%)</span></div></div>';
+}
+
+// ── Timeline
+function renderTimeline(blocks, divId) {
+  var div=document.getElementById(divId); div.innerHTML="";
+  if(!blocks.length)return;
+  var tS=Math.min.apply(null,blocks.map(function(b){return b.startMin;}));
+  var tE=Math.max.apply(null,blocks.map(function(b){return b.endMin;}));
+  var tR=Math.max(tE-tS,60);
+  var ticksHtml="";
+  for(var i=0;i<Math.ceil(tR/60)+2;i++){
+    var min=Math.floor(tS/60)*60+i*60;
+    if(min<tS-30||min>tE+30)continue;
+    var pct=((min-tS)/tR)*100;
+    ticksHtml+='<div style="position:absolute;left:'+pct+'%;top:0;bottom:0;border-left:1px solid #d8d4cc;pointer-events:none"><span style="font-size:10px;color:#aaa;white-space:nowrap;padding-left:4px">'+toHHMM(min)+'</span></div>';
+  }
+  var blocksHtml='<div class="tl-blocks">';
+  blocks.forEach(function(b){
+    var left=((b.startMin-tS)/tR)*100, width=Math.max((b.duration/tR)*100,2);
+    blocksHtml+='<div class="tl-block-outer"><div class="tl-block" style="left:'+left+'%;width:'+width+'%;background:'+b.color+'"><span>'+b.label+'</span></div><span class="tl-label" style="left:calc('+left+'% + '+width+'% + 6px)">'+fmt(b.duration)+'</span></div>';
+  });
+  blocksHtml+='</div>';
+  div.innerHTML = ticksHtml + blocksHtml;
+}
+
+// ── Chart
+function renderChart(blocks) {
+  renderTimeline(blocks, "chart-timeline");
+  renderDonut(blocks, "chart-donut");
+  renderLegend(blocks, "chart-legend");
+}
+
+// ── History
+function renderHistory() {
+  var list=document.getElementById("history-list"); list.innerHTML="";
+  var keys=Object.keys(savedDays).sort(function(a,b){return b.localeCompare(a);});
+  if(!keys.length){list.innerHTML='<p style="color:#aaa">まだ保存された記録がありません</p>';return;}
+  keys.forEach(function(key){
+    var blocks=getBlocksFromEntries(savedDays[key]||[]);
+    var tot=blocks.reduce(function(s,b){return s+b.duration;},0);
+    var miniSvg=buildMiniSvg(blocks);
+    var btn=document.createElement("button");
+    btn.className="card";
+    btn.innerHTML=miniSvg+'<div style="flex:1"><div style="font-size:15px;font-weight:600">'+fmtDate(key)+'</div><div style="font-size:12px;color:#aaa;margin-top:3px">'+blocks.length+'件 · 記録済み '+fmt(tot)+'</div></div><span style="color:#ccc;font-size:18px">›</span>';
+    btn.onclick=function(){ showDetail(key); };
+    list.appendChild(btn);
+  });
+}
+function buildMiniSvg(blocks) {
+  var cx=30,cy=30,R=25,r=15, html='<svg viewBox="0 0 60 60" style="width:48px;height:48px;flex-shrink:0">';
+  getGaps(blocks).forEach(function(g){html+='<path d="'+buildArc(g.s,g.e,R,r,cx,cy)+'" fill="#ddd8d0" stroke="#f0ede8" stroke-width="1"/>';});
+  blocks.forEach(function(b){html+='<path d="'+buildArc(b.startMin,b.endMin,R,r,cx,cy)+'" fill="'+b.color+'" stroke="#f0ede8" stroke-width="1"/>';});
+  return html+'</svg>';
+}
+
+// ── Monthly
+function renderMonthly() {
+  var allKeys=Object.keys(savedDays).sort();
+  var monthSet={};
+  allKeys.forEach(function(k){monthSet[k.slice(0,7)]=true;});
+  var months=Object.keys(monthSet).sort(function(a,b){return b.localeCompare(a);});
+  if(!selectedMonth||months.indexOf(selectedMonth)===-1) selectedMonth=months[0]||"";
+  renderMonthTabs(months);
+  renderMonthData();
+}
+function renderMonthTabs(months) {
+  var div=document.getElementById("month-tabs"); div.innerHTML="";
+  months.forEach(function(m){
+    var btn=document.createElement("button");
+    btn.className="month-tab"+(m===selectedMonth?" active":"");
+    btn.textContent=fmtMonth(m);
+    btn.onclick=function(){selectedMonth=m;renderMonthTabs(months);renderMonthData();};
+    div.appendChild(btn);
+  });
+}
+function renderMonthData() {
+  var allKeys=Object.keys(savedDays).sort();
+  var dayKeys=allKeys.filter(function(k){return k.indexOf(selectedMonth)===0;});
+  var dayData=dayKeys.map(function(dk){
+    var blocks=getBlocksFromEntries(savedDays[dk]||[]);
+    var merged={};
+    blocks.forEach(function(b){if(!merged[b.label])merged[b.label]={label:b.label,color:b.color,duration:0};merged[b.label].duration+=b.duration;});
+    return{date:dk,segments:Object.values(merged),total:blocks.reduce(function(s,b){return s+b.duration;},0)};
+  });
+  var BAR_MAX=160;
+  var maxMin=Math.max.apply(null,dayData.map(function(d){return d.total;}).concat([1]));
+  var monthTotal=dayData.reduce(function(s,d){return s+d.total;},0);
+  var labelSet={};
+  dayData.forEach(function(d){d.segments.forEach(function(s){labelSet[s.label]=true;});});
+  var allLabels=Object.keys(labelSet);
+  var labelTotals={};
+  allLabels.forEach(function(l){
+    labelTotals[l]=dayData.reduce(function(s,d){
+      var seg=d.segments.find(function(x){return x.label===l;});
+      return s+(seg?seg.duration:0);
+    },0);
+  });
+  var sortedLabels=allLabels.sort(function(a,b){return labelTotals[b]-labelTotals[a];});
+  var maxLabelTotal=Math.max.apply(null,Object.values(labelTotals).concat([1]));
+
+  // Bars
+  var barsDiv=document.getElementById("monthly-bars");
+  if(!dayData.length){barsDiv.innerHTML='<p style="color:#aaa;margin-top:8px">この月の記録はありません</p>';document.getElementById("monthly-totals").innerHTML="";return;}
+  var inner='<div class="monthly-bar-inner" style="min-width:'+(dayData.length*52)+'px">';
+  dayData.forEach(function(d){
+    var barH=Math.round((d.total/maxMin)*BAR_MAX);
+    var segs=d.segments.slice().sort(function(a,b){return a.label.localeCompare(b.label);});
+    var segHtml="";
+    segs.forEach(function(seg){
+      var segH=Math.round((seg.duration/maxMin)*BAR_MAX);
+      segHtml+='<div style="width:100%;height:'+segH+'px;background:'+seg.color+';flex-shrink:0"></div>';
+    });
+    inner+='<div class="bar-col"><div style="font-size:10px;color:#aaa">'+fmt(d.total)+'</div><div class="bar-track" style="height:'+BAR_MAX+'px"><div class="bar-bg" style="height:'+BAR_MAX+'px"></div><div class="bar-fill" style="height:'+barH+'px">'+segHtml+'</div></div><div style="font-size:10px;color:#888;text-align:center">'+parseInt(d.date.slice(8))+'日</div></div>';
+  });
+  barsDiv.innerHTML=inner+'</div>';
+
+  // Totals
+  var totDiv=document.getElementById("monthly-totals"); totDiv.innerHTML="";
+  sortedLabels.forEach(function(label){
+    var total=labelTotals[label],color=labelColor(label);
+    var pct=monthTotal>0?Math.round(total/monthTotal*100):0;
+    var barW=Math.round(total/maxLabelTotal*100);
+    totDiv.innerHTML+='<div style="background:#fff;border-radius:10px;padding:12px 14px;border:1px solid #d8d4cc;margin-bottom:10px"><div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div style="width:12px;height:12px;border-radius:3px;background:'+color+';flex-shrink:0"></div><div style="flex:1;font-size:14px;font-weight:600">'+label+'</div><div style="font-size:13px;color:#555">'+fmt(total)+'</div><div style="font-size:11px;color:#aaa;width:32px;text-align:right">'+pct+'%</div></div><div class="progress-bar-wrap"><div class="progress-bar" style="width:'+barW+'%;background:'+color+'"></div></div></div>';
+  });
+}
+
+window.onload = init;
+</script>
+</body>
+</html>
